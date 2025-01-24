@@ -1,4 +1,5 @@
 use std::net::Ipv4Addr;
+use std::sync::Mutex;
 
 use esp_idf_svc::hal::delay::BLOCK;
 use esp_idf_svc::hal::gpio;
@@ -10,19 +11,38 @@ use esp_idf_svc::wifi::ClientConfiguration;
 use esp_idf_svc::{hal::delay::Delay, wifi::Configuration};
 
 use esp_idf_svc::{eventloop::EspSystemEventLoop, nvs::EspDefaultNvsPartition, wifi::EspWifi};
-mod sensor_storage;
-use sensor_storage::*;
+use sensor_storage::{RecordStatus, SensorReadings};
 
 use dotenvy_macro::dotenv;
 
 const PSWD: &'static str = dotenv!("PSWD");
 const SSID: &'static str = dotenv!("SSID");
 
+type ReadingTaint = ();
+pub const VALID_RESPONSE_CAPACITY: usize = 128;
+pub const SENSOR_ERROR_CAPACITY: usize = 128;
+pub const PARSE_ERROR_CAPACITY: usize = 128;
+pub const ERROR_RECORDING_CAPACITY: usize = 128;
+static SENSOR_STORAGE: Mutex<
+    SensorReadings<
+        ReadingTaint,
+        VALID_RESPONSE_CAPACITY,
+        SENSOR_ERROR_CAPACITY,
+        PARSE_ERROR_CAPACITY,
+        ERROR_RECORDING_CAPACITY,
+    >,
+> = Mutex::new(SensorReadings::new());
+
+fn update_sensor_storage(taint: ReadingTaint, response: &[u8; 7]) -> RecordStatus {
+    SENSOR_STORAGE
+        .lock()
+        .unwrap()
+        .record_reading(taint, response)
+}
+
 fn main() {
     esp_idf_svc::sys::link_patches(); // Required by template; patch to runtime
     esp_idf_svc::log::EspLogger::initialize_default(); // Bind the log crate to the ESP Logging facilities
-
-    let mut sensor_storage = setup_sensor_storage();
 
     let peripherals = Peripherals::take().unwrap();
 
@@ -75,7 +95,7 @@ fn main() {
         // Check if new reading is in...
         if uart_rx.count().unwrap() >= 7 {
             uart_rx.read(response, BLOCK).unwrap();
-            let reading = sensor_storage.record_reading((), response);
+            let reading = update_sensor_storage((), response);
             match reading {
                 ::sensor_storage::RecordStatus::NewReading(_)
                 | ::sensor_storage::RecordStatus::ParseError(_) => {
