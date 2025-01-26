@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sensor Readings</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f9;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 20px;
+            background: #fff;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        header h1 {
+            color: #007BFF;
+        }
+
+        section {
+            margin-bottom: 30px;
+        }
+
+        section h2 {
+            border-bottom: 2px solid #007BFF;
+            padding-bottom: 5px;
+            margin-bottom: 10px;
+            color: #333;
+        }
+
+        .summary p {
+            font-size: 1.2em;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+
+        table th, table td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+
+        table th {
+            background-color: #007BFF;
+            color: white;
+        }
+
+        table tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+
+        .errors ul {
+            list-style-type: disc;
+            padding-left: 20px;
+        }
+
+        .errors ul li {
+            margin-bottom: 5px;
+        }
+
+    </style>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Sensor Readings Overview</h1>
+        </header>
+
+        <section class="summary">
+            <h2>Summary</h2>
+            <p><strong>Total Responses:</strong> <span id="total-responses"></span></p>
+        </section>
+
+        <section class="errors">
+            <h2>Error Records</h2>
+            <ul id="error-records"></ul>
+        </section>
+
+        <section class="history">
+            <h2>Valid Responses</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Taint (T)</th>
+                        <th>Sensor Response</th>
+                    </tr>
+                </thead>
+                <tbody id="valid-responses"></tbody>
+            </table>
+        </section>
+
+        <section class="history" id="sensor-errors-section">
+            <h2>Sensor Errors</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Taint (T)</th>
+                        <th>Sensor Error</th>
+                    </tr>
+                </thead>
+                <tbody id="sensor-errors"></tbody>
+            </table>
+        </section>
+
+        <section class="history" id="parse-errors-section">
+            <h2>Parse Errors</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Taint (T)</th>
+                        <th>Faulty Response</th>
+                    </tr>
+                </thead>
+                <tbody id="parse-errors"></tbody>
+            </table>
+        </section>
+    </div>
+
+    <script>
+        (async () => {
+            const sensorReadingsResponse = await fetch("responses.json");
+            const sensorReadings = await sensorReadingsResponse.json();
+
+            // Populate total responses
+            document.getElementById('total-responses').textContent = sensorReadings.total_responses;
+    
+            // Populate valid responses
+            const validResponsesTable = document.getElementById('valid-responses');
+            sensorReadings.responses.forEach(entry => {
+                let entry_value;
+                let entry_kind;
+                if (entry.error !== undefined)
+                    entry_value = `Error ${entry.error}`;
+                if (entry.temperature !== undefined)
+                    entry_value = `${Math.floor(entry.temperature * 10) / 10}°C`;
+                const row = `<tr><td>${entry.taint}</td><td>${entry_value}</td></tr>`;
+                validResponsesTable.innerHTML += row;
+            });
+
+            if (sensorReadings.sensor_errors.length === 0) {
+                const sensorErrorsSection = document.getElementById('sensor-errors-section');
+                sensorErrorsSection.remove();
+            } else {
+                const sensorErrorsTable = document.getElementById('sensor-errors');
+                // Populate sensor errors
+                sensorReadings.sensor_errors.forEach(entry => {
+                    const row = `<tr><td>${entry.taint}</td><td>${entry.error}</td></tr>`;
+                    sensorErrorsTable.innerHTML += row;
+                });
+            }
+    
+            if (sensorReadings.parse_errors.length === 0) {
+                const parseErrorsSection = document.getElementById('parse-errors-section');
+                parseErrorsSection.remove();
+            } else {
+                // Populate parse errors
+                const parseErrorsTable = document.getElementById('parse-errors');
+                sensorReadings.parse_errors.forEach(entry => {
+                    const row = `<tr><td>${entry.taint}</td><td>Input: ${entry.input}, error: ${entry.error}</td></tr>`;
+                    parseErrorsTable.innerHTML += row;
+                });
+            }
+    
+            // Populate error records
+            const errorRecordsList = document.getElementById('error-records');
+            sensorReadings.errors_recorded.forEach(entry => {
+                const k = Object.keys(entry)[0];
+                const v = entry[k];
+                const item = `<li>${k}: ${v}</li>`;
+                errorRecordsList.innerHTML += item;
+            });
+        })();
+    </script>
+</body>
+</html>

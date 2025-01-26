@@ -18,6 +18,7 @@ use esp_idf_svc::{
 use esp_idf_svc::{hal::delay::Delay, wifi::Configuration as WifiConfiguration};
 
 use sensor_storage::{RecordStatus, SensorReadings};
+use sensor_storage_to_json::to_json;
 
 use dotenvy_macro::dotenv;
 
@@ -98,9 +99,20 @@ fn main() {
     // http://<sta ip>/ handler
     server
         .fn_handler("/", Method::Get, |request| {
-            let html = storage_to_html();
             let mut response = request.into_ok_response().unwrap();
-            response.write_all(html.as_bytes()).unwrap();
+            response.write_all(include_bytes!("index.html")).unwrap();
+            Ok::<(), ()>(())
+        })
+        .unwrap();
+
+    server
+        .fn_handler("/responses.json", Method::Get, |request| {
+            let storage = SENSOR_STORAGE.lock().unwrap();
+            let json = to_json(&storage);
+            let mut response = request
+                .into_response(200, Some("OK"), &[("Content-Type", "application/json")])
+                .unwrap();
+            response.write_all(json.as_bytes()).unwrap();
             Ok::<(), ()>(())
         })
         .unwrap();
@@ -132,20 +144,4 @@ fn main() {
 
         delay.delay_ms(100);
     }
-}
-
-fn storage_to_html() -> String {
-    format!(
-        r#"
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>Hello from ESP32!</title>
-        </head>
-        <body>
-            Hello from ESP32!
-        </body>
-        </html>
-        "#
-    )
 }
