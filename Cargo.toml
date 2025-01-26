@@ -34,6 +34,7 @@ sensor_storage = { path = "../temperature_parser/crates/sensor_storage" }
 sensor_storage_to_json ={ path = "../sensor_storage_to_json" }
 
 dotenvy_macro = "0.15.7"
+chrono = "0.4.39"
 
 [build-dependencies]
 embuild = "0.33"

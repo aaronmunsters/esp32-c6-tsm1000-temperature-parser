@@ -10,6 +10,7 @@ use esp_idf_svc::http::server::EspHttpServer;
 use esp_idf_svc::http::Method;
 use esp_idf_svc::io::Write;
 use esp_idf_svc::ipv4;
+use esp_idf_svc::sntp::{EspSntp, SyncStatus};
 use esp_idf_svc::wifi::ClientConfiguration;
 use esp_idf_svc::{
     eventloop::EspSystemEventLoop, http::server::Configuration as HttpServerConfig,
@@ -20,12 +21,13 @@ use esp_idf_svc::{hal::delay::Delay, wifi::Configuration as WifiConfiguration};
 use sensor_storage::{RecordStatus, SensorReadings};
 use sensor_storage_to_json::to_json;
 
+use chrono::Utc;
 use dotenvy_macro::dotenv;
 
 const PSWD: &'static str = dotenv!("PSWD");
 const SSID: &'static str = dotenv!("SSID");
 
-type ReadingTaint = ();
+type ReadingTaint = i64;
 pub const VALID_RESPONSE_CAPACITY: usize = 128;
 pub const SENSOR_ERROR_CAPACITY: usize = 128;
 pub const PARSE_ERROR_CAPACITY: usize = 128;
@@ -47,9 +49,15 @@ fn update_sensor_storage(taint: ReadingTaint, response: &[u8; 7]) -> RecordStatu
         .record_reading(taint, response)
 }
 
+fn reading_taint() -> ReadingTaint {
+    Utc::now().timestamp()
+}
+
 fn main() {
     esp_idf_svc::sys::link_patches(); // Required by template; patch to runtime
     esp_idf_svc::log::EspLogger::initialize_default(); // Bind the log crate to the ESP Logging facilities
+
+    let delay: Delay = Delay::new_default();
 
     let peripherals = Peripherals::take().unwrap();
 
@@ -71,13 +79,10 @@ fn main() {
     wifi_driver.start().unwrap();
     wifi_driver.connect().unwrap();
     while !wifi_driver.is_connected().unwrap() {
+        delay.delay_ms(250);
         let config = wifi_driver.get_configuration().unwrap();
         log::info!("Waiting for station {:?}", config);
     }
-
-    let delay: Delay = Delay::new_default();
-    let mut loop_count = 0;
-    log::info!("Entering loop!");
 
     let rx = peripherals.pins.gpio18;
     let tx = peripherals.pins.gpio19;
@@ -117,15 +122,27 @@ fn main() {
         })
         .unwrap();
 
+    // Synchronize through NTP
+    let ntp = EspSntp::new_default().unwrap();
+    println!("Synchronizing with NTP Server");
+    while ntp.get_sync_status() != SyncStatus::Completed {
+        delay.delay_ms(250);
+        log::info!("Waiting for NTP Server");
+    }
+    println!("Time Sync Completed");
+
     // Default configuration
     let mut ip_info: ipv4::Ipv4Addr = Ipv4Addr::new(0, 0, 0, 0);
 
     log::info!("Connection established!");
+
+    let mut loop_count = 0;
+    log::info!("Entering loop!");
     loop {
         // Check if new reading is in...
         if uart_rx.count().unwrap() >= 7 {
             uart_rx.read(response, BLOCK).unwrap();
-            let reading = update_sensor_storage((), response);
+            let reading = update_sensor_storage(reading_taint(), response);
             match reading {
                 ::sensor_storage::RecordStatus::NewReading(_)
                 | ::sensor_storage::RecordStatus::ParseError(_) => {

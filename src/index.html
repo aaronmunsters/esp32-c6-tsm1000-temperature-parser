@@ -136,6 +136,11 @@
     </div>
 
     <script>
+        function time_to_human(timestamp) {
+            const date = new Date(timestamp * 1000);
+            return date.toLocaleString();
+        }
+
         (async () => {
             const sensorReadingsResponse = await fetch("responses.json");
             const sensorReadings = await sensorReadingsResponse.json();
@@ -152,7 +157,7 @@
                     entry_value = `Error ${entry.error}`;
                 if (entry.temperature !== undefined)
                     entry_value = `${Math.floor(entry.temperature * 10) / 10}°C`;
-                const row = `<tr><td>${entry.taint}</td><td>${entry_value}</td></tr>`;
+                const row = `<tr><td>${time_to_human(entry.taint)}</td><td>${entry_value}</td></tr>`;
                 validResponsesTable.innerHTML += row;
             });
 
@@ -163,7 +168,7 @@
                 const sensorErrorsTable = document.getElementById('sensor-errors');
                 // Populate sensor errors
                 sensorReadings.sensor_errors.forEach(entry => {
-                    const row = `<tr><td>${entry.taint}</td><td>${entry.error}</td></tr>`;
+                    const row = `<tr><td>${time_to_human(entry.taint)}</td><td>${entry.error}</td></tr>`;
                     sensorErrorsTable.innerHTML += row;
                 });
             }
@@ -175,7 +180,7 @@
                 // Populate parse errors
                 const parseErrorsTable = document.getElementById('parse-errors');
                 sensorReadings.parse_errors.forEach(entry => {
-                    const row = `<tr><td>${entry.taint}</td><td>Input: ${entry.input}, error: ${entry.error}</td></tr>`;
+                    const row = `<tr><td>${time_to_human(entry.taint)}</td><td>Input: ${entry.input}, error: ${entry.error}</td></tr>`;
                     parseErrorsTable.innerHTML += row;
                 });
             }
