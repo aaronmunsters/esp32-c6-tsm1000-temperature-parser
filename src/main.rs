@@ -6,11 +6,17 @@ use esp_idf_svc::hal::gpio;
 use esp_idf_svc::hal::peripherals::Peripherals;
 use esp_idf_svc::hal::uart::*;
 use esp_idf_svc::hal::units::Hertz;
+use esp_idf_svc::http::server::EspHttpServer;
+use esp_idf_svc::http::Method;
+use esp_idf_svc::io::Write;
 use esp_idf_svc::ipv4;
 use esp_idf_svc::wifi::ClientConfiguration;
-use esp_idf_svc::{hal::delay::Delay, wifi::Configuration};
+use esp_idf_svc::{
+    eventloop::EspSystemEventLoop, http::server::Configuration as HttpServerConfig,
+    nvs::EspDefaultNvsPartition, wifi::EspWifi,
+};
+use esp_idf_svc::{hal::delay::Delay, wifi::Configuration as WifiConfiguration};
 
-use esp_idf_svc::{eventloop::EspSystemEventLoop, nvs::EspDefaultNvsPartition, wifi::EspWifi};
 use sensor_storage::{RecordStatus, SensorReadings};
 
 use dotenvy_macro::dotenv;
@@ -54,7 +60,7 @@ fn main() {
     .unwrap();
 
     wifi_driver
-        .set_configuration(&Configuration::Client(ClientConfiguration {
+        .set_configuration(&WifiConfiguration::Client(ClientConfiguration {
             ssid: SSID.try_into().unwrap(),
             password: PSWD.try_into().unwrap(),
             ..Default::default()
@@ -87,6 +93,18 @@ fn main() {
     let (_uart_tx, uart_rx) = uart.split();
     let response: &mut [u8; 7] = &mut [0; 7];
 
+    // Set up HTTP server
+    let mut server = EspHttpServer::new(&HttpServerConfig::default()).unwrap();
+    // http://<sta ip>/ handler
+    server
+        .fn_handler("/", Method::Get, |request| {
+            let html = storage_to_html();
+            let mut response = request.into_ok_response().unwrap();
+            response.write_all(html.as_bytes()).unwrap();
+            Ok::<(), ()>(())
+        })
+        .unwrap();
+
     // Default configuration
     let mut ip_info: ipv4::Ipv4Addr = Ipv4Addr::new(0, 0, 0, 0);
 
@@ -114,4 +132,20 @@ fn main() {
 
         delay.delay_ms(100);
     }
+}
+
+fn storage_to_html() -> String {
+    format!(
+        r#"
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Hello from ESP32!</title>
+        </head>
+        <body>
+            Hello from ESP32!
+        </body>
+        </html>
+        "#
+    )
 }
