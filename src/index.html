@@ -87,9 +87,10 @@
         <section class="summary">
             <h2>Summary</h2>
             <p><strong>Total Responses:</strong> <span id="total-responses"></span></p>
+            <p><strong>Errors recorded:</strong> <span id="errors-recorded"></span></p>
         </section>
 
-        <section class="errors">
+        <section class="errors" id="error-records-section">
             <h2>Error Records</h2>
             <ul id="error-records"></ul>
         </section>
@@ -144,8 +145,28 @@
             const sensorReadingsResponse = await fetch("responses.json");
             const sensorReadings = await sensorReadingsResponse.json();
 
-            // Populate total responses
+            const errors_present = sensorReadings.errors_recorded.some((error_count) => {
+                let [[error, count]] = Object.entries(error_count);
+                return count > 0;
+            });
+
+            // Populate total responses, errors recorded
             document.getElementById('total-responses').textContent = sensorReadings.total_responses;
+            document.getElementById('errors-recorded').textContent = errors_present ? "Some, see below..." : "None";
+
+            // Populate error records
+            if (errors_present) {
+                const errorRecordsList = document.getElementById('error-records');
+                sensorReadings.errors_recorded.forEach(entry => {
+                    const k = Object.keys(entry)[0];
+                    const v = entry[k];
+                    const item = `<li>${k}: ${v}</li>`;
+                    errorRecordsList.innerHTML += item;
+                });
+            } else {
+                const errorRecordsSection = document.getElementById('error-records-section');
+                errorRecordsSection.remove();
+            }
     
             // Populate valid responses
             const validResponsesTable = document.getElementById('valid-responses');
@@ -155,7 +176,7 @@
                 if (entry.error !== undefined)
                     entry_value = `Error ${entry.error}`;
                 if (entry.temperature !== undefined)
-                    entry_value = `${Math.floor(entry.temperature * 10) / 10}°C`;
+                    entry_value = `${entry.temperature / 10}°C`;
                 const row = `<tr><td>${time_to_human(entry.taint)}</td><td>${entry_value}</td></tr>`;
                 validResponsesTable.innerHTML += row;
             });
@@ -183,15 +204,6 @@
                     parseErrorsTable.innerHTML += row;
                 });
             }
-    
-            // Populate error records
-            const errorRecordsList = document.getElementById('error-records');
-            sensorReadings.errors_recorded.forEach(entry => {
-                const k = Object.keys(entry)[0];
-                const v = entry[k];
-                const item = `<li>${k}: ${v}</li>`;
-                errorRecordsList.innerHTML += item;
-            });
         })();
     </script>
 </body>
