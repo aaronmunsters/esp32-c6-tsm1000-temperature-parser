@@ -29,9 +29,9 @@ esp-idf-svc = { version = "0.51", features = ["critical-section", "embassy-time-
 embedded-hal = "1.0.0"
 embedded-svc = "0.28.1"
 
-temperature_parser = { path = "../temperature_parser/crates/temperature_parser" }
-sensor_storage = { path = "../temperature_parser/crates/sensor_storage" }
-sensor_storage_to_json ={ path = "../temperature_parser/crates/sensor_storage_to_json" }
+temperature_parser = { git = "https://github.com/aaronmunsters/tsm1000-temperature-parser" }
+sensor_storage = { git = "https://github.com/aaronmunsters/tsm1000-temperature-parser" }
+sensor_storage_to_json ={ git = "https://github.com/aaronmunsters/tsm1000-temperature-parser" }
 
 dotenvy_macro = "0.15.7"
 chrono = "0.4.39"
