@@ -28,7 +28,7 @@ const PSWD: &'static str = dotenv!("PSWD");
 const SSID: &'static str = dotenv!("SSID");
 
 type ReadingTaint = i64;
-pub const VALID_RESPONSE_CAPACITY: usize = 128;
+pub const VALID_RESPONSE_CAPACITY: usize = 2056;
 pub const SENSOR_ERROR_CAPACITY: usize = 128;
 pub const PARSE_ERROR_CAPACITY: usize = 128;
 pub const ERROR_RECORDING_CAPACITY: usize = 128;

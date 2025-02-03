@@ -77,6 +77,7 @@
         }
 
     </style>
+    <script src='https://cdn.plot.ly/plotly-3.0.0.min.js'></script>
 </head>
 <body>
     <div class="container">
@@ -95,6 +96,7 @@
             <ul id="error-records"></ul>
         </section>
 
+        <div id='sensor_time_series'></div>
         <section class="history">
             <h2>Valid Responses</h2>
             <table>
@@ -136,9 +138,8 @@
     </div>
 
     <script>
-        function time_to_human(timestamp) {
-            const date = new Date(timestamp * 1000);
-            return date.toLocaleString();
+        function epoch_to_date(timestamp) {
+            return new Date(timestamp * 1000);
         }
 
         (async () => {
@@ -170,16 +171,38 @@
     
             // Populate valid responses
             const validResponsesTable = document.getElementById('valid-responses');
-            sensorReadings.responses.forEach(entry => {
+            const error_kind = "E";
+            const temperature_kind = "T";
+
+            const responses = sensorReadings.responses.slice().reverse().map(entry => {
                 let entry_value;
                 let entry_kind;
-                if (entry.error !== undefined)
-                    entry_value = `Error ${entry.error}`;
-                if (entry.temperature !== undefined)
-                    entry_value = `${entry.temperature / 10}°C`;
-                const row = `<tr><td>${time_to_human(entry.taint)}</td><td>${entry_value}</td></tr>`;
+                if (entry.error !== undefined) {
+                    entry_value = entry.error;
+                    entry_kind = error_kind;
+                }
+                if (entry.temperature !== undefined) {
+                    entry_value = entry.temperature / 10;
+                    entry_kind = temperature_kind;
+                }
+                return { entry_kind, entry_value, timestamp: epoch_to_date(entry.taint) };
+            });
+
+            responses.forEach((r) => {
+                let text;
+                if(r.entry_kind === error_kind) text = `Error ${r.entry_value}`;
+                if(r.entry_kind === temperature_kind) text = `${r.entry_value}°C`;
+                const row = `<tr><td>${r.timestamp.toLocaleString()}</td><td>${text}</td></tr>`;
                 validResponsesTable.innerHTML += row;
             });
+
+            const temperature_responses = responses.filter((r) => r.entry_kind === temperature_kind);
+            const data = [{
+                x: temperature_responses.map((r) => r.timestamp),
+                y: temperature_responses.map((r) => r.entry_value),
+                type: 'scatter',
+            }];
+            Plotly.newPlot('sensor_time_series', data);
 
             if (sensorReadings.sensor_errors.length === 0) {
                 const sensorErrorsSection = document.getElementById('sensor-errors-section');
@@ -188,7 +211,7 @@
                 const sensorErrorsTable = document.getElementById('sensor-errors');
                 // Populate sensor errors
                 sensorReadings.sensor_errors.forEach(entry => {
-                    const row = `<tr><td>${time_to_human(entry.taint)}</td><td>${entry.error}</td></tr>`;
+                    const row = `<tr><td>${epoch_to_date(entry.taint).toLocaleString()}</td><td>${entry.error}</td></tr>`;
                     sensorErrorsTable.innerHTML += row;
                 });
             }
@@ -200,7 +223,7 @@
                 // Populate parse errors
                 const parseErrorsTable = document.getElementById('parse-errors');
                 sensorReadings.parse_errors.forEach(entry => {
-                    const row = `<tr><td>${time_to_human(entry.taint)}</td><td>Input: ${entry.input}, error: ${entry.error}</td></tr>`;
+                    const row = `<tr><td>${epoch_to_date(entry.taint).toLocaleString()}</td><td>Input: ${entry.input}, error: ${entry.error}</td></tr>`;
                     parseErrorsTable.innerHTML += row;
                 });
             }
